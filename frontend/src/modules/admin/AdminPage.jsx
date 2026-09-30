@@ -1,0 +1,6 @@
+import { ShieldCheck } from 'lucide-react';
+
+export function AdminPage({ onNavigate }) {
+  const links = [['catalogo', 'Catálogo de productos'], ['inventario', 'Inventario e insumos'], ['ordenes', 'Historial de órdenes']];
+  return <section className="space-y-8"><header><p className="font-accent text-[10px] uppercase tracking-[0.2em] text-brand-blue">Configuración</p><h1 className="font-display text-3xl sm:text-4xl">Administración</h1><p className="mt-2 text-brand-dark/60">Accesos rápidos para mantener la operación.</p></header><div className="rounded-3xl bg-brand-dark p-7 text-brand-light shadow-panel"><ShieldCheck className="text-brand-gold" size={30} /><h2 className="mt-4 font-display text-3xl">Panel protegido</h2><p className="mt-2 max-w-xl text-brand-muted">Las operaciones administrativas requieren una sesión autenticada y respetan los permisos del usuario.</p></div><div className="grid gap-5 md:grid-cols-3">{links.map(([id, label]) => <button key={id} onClick={() => onNavigate(id)} className="rounded-3xl bg-white p-6 text-left shadow-panel transition hover:-translate-y-1"><p className="font-accent text-[10px] uppercase text-brand-blue">Gestionar</p><h2 className="mt-3 font-display text-2xl">{label}</h2></button>)}</div></section>;
+}

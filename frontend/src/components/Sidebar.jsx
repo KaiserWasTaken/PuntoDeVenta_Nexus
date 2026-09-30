@@ -1,16 +1,11 @@
-import { BarChart3, ChefHat, Coffee, ClipboardList, Gamepad2, Home, Package, ReceiptText, Settings, ShoppingBag } from 'lucide-react';
+import { ClipboardList, Gamepad2, ReceiptText, Settings, ShoppingCart } from 'lucide-react';
 
 export function Sidebar({ activeView, onChange }) {
   const items = [
-    { id: 'dashboard', label: 'Inicio', icon: Home },
+    { id: 'nuevo-pedido', label: 'Nuevo Pedido', icon: ShoppingCart },
+    { id: 'comandas', label: 'Comandas', icon: ClipboardList },
     { id: 'rentas', label: 'Rentas', icon: Gamepad2 },
-    { id: 'monitor', label: 'Monitor', icon: BarChart3 },
-    { id: 'cafeteria', label: 'Cafetería', icon: Coffee },
-    { id: 'kds', label: 'Cocina', icon: ChefHat },
     { id: 'gastos', label: 'Gastos', icon: ReceiptText },
-    { id: 'inventario', label: 'Inventario', icon: Package },
-    { id: 'catalogo', label: 'Catálogo', icon: ShoppingBag },
-    { id: 'ordenes', label: 'Órdenes', icon: ClipboardList },
     { id: 'admin', label: 'Admin', icon: Settings }
   ];
   return (

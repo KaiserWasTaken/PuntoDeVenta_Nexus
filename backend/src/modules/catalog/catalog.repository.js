@@ -76,8 +76,8 @@ export async function listProducts(filters) {
   return result.rows;
 }
 
-export async function findProduct(id) {
-  const result = await pool.query(`
+export async function findProduct(id, client = pool) {
+  const result = await client.query(`
     SELECT p.*, c.name AS category_name, sc.name AS subcategory_name
     FROM products p
     LEFT JOIN categories c ON c.id = p.category_id
@@ -139,7 +139,7 @@ export async function findModifiers(productId, client = pool) {
   const result = await client.query(`
     SELECT
       m.id, m.product_id, m.name, m.required, m.min_selections,
-      m.max_selections, m.sort_order, m.is_active,
+      m.max_selections, m.sort_order, m.is_active, m.metadata,
       COALESCE(json_agg(json_build_object(
         'id', o.id, 'name', o.name, 'price_delta', o.price_delta,
         'is_active', o.is_active
@@ -202,9 +202,11 @@ export async function findCombo(comboId) {
 
 export async function findProductForOrder(productId, client = pool) {
   const result = await client.query(`
-    SELECT id, name, sale_price, product_type, is_active
-    FROM products
-    WHERE id = $1 AND is_active = TRUE
+    SELECT p.id, p.name, p.sale_price, p.product_type, p.is_active,
+      s.name AS subcategory_name
+    FROM products p
+    LEFT JOIN subcategories s ON s.id = p.subcategory_id
+    WHERE p.id = $1 AND p.is_active = TRUE
   `, [productId]);
   return result.rows[0] ?? null;
 }

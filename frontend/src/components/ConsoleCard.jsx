@@ -26,14 +26,15 @@ function liveSession(session, now) {
   };
 }
 
-export function ConsoleCard({ consoleRecord, now, onStart, onPause, onResume, onFinish, busy }) {
+export function ConsoleCard({ consoleRecord, now, onStart, onPause, onResume, onFinish, busy, forceExpired = false }) {
   const session = liveSession(consoleRecord.session, now);
   const isOccupied = consoleRecord.status === 'occupied' && session;
-  const isExpired = session?.remaining === 0 && session?.remaining !== null;
+  const isExpired = forceExpired || (session?.remaining === 0 && session?.remaining !== null);
+  const isWarning = !isExpired && session?.remaining !== null && session?.remaining < 300;
 
   return (
     <article className={`flex min-h-[290px] flex-col rounded-3xl border bg-brand-light p-5 shadow-panel transition ${
-      isExpired ? 'animate-pulse border-red-500 ring-4 ring-brand-gold/50' : 'border-brand-muted'
+      isExpired ? 'animate-pulse border-red-500 ring-4 ring-red-500/30' : isWarning ? 'border-orange-400 ring-2 ring-orange-300/40' : 'border-brand-muted'
     }`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -52,7 +53,7 @@ export function ConsoleCard({ consoleRecord, now, onStart, onPause, onResume, on
         <div className="mt-6 flex flex-1 flex-col">
           <div className="rounded-2xl bg-brand-dark p-4 text-brand-light">
             <p className="font-accent text-[10px] uppercase tracking-wider text-brand-muted">
-              {session.remaining === null ? 'Tiempo transcurrido' : 'Tiempo restante'}
+              {isExpired ? 'TIEMPO AGOTADO' : session.remaining === null ? 'Tiempo transcurrido' : 'Tiempo restante'}
             </p>
             <p className={`mt-1 font-mono text-4xl font-bold ${isExpired ? 'text-red-300' : 'text-brand-gold'}`}>
               {formatDuration(session.remaining === null ? session.elapsed : session.remaining)}

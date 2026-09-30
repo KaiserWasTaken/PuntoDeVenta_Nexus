@@ -46,13 +46,17 @@ export function ComboCustomizer({ product, onClose, onAdd }) {
         const allowed = Array.isArray(item.metadata?.allowed_product_ids)
           ? products.filter((candidate) => item.metadata.allowed_product_ids.includes(candidate.id))
           : products.filter((candidate) => candidate.id === item.component_product_id);
+        const categoryAllowed = item.metadata?.allowed_subcategory
+          ? products.filter((candidate) => candidate.subcategory_name === item.metadata.allowed_subcategory)
+          : allowed;
+        const candidates = item.metadata?.allowed_subcategory ? categoryAllowed : allowed;
         return <div key={item.id} className="mt-5">
           <p className="font-exo font-bold">{item.component_name || (item.component_type === 'RENTAL' ? 'Renta' : 'Componente')}</p>
           {item.component_type === 'RENTAL'
             ? <input className="input mt-2" placeholder="UUID de sesión de renta" onChange={(event) => setChoices((current) => ({ ...current, [item.id]: { rental: { session_id: event.target.value, name: 'Renta incluida' } } }))} />
             : <select className="input mt-2" value={choices[item.id]?.product_id || item.component_product_id || ''} onChange={(event) => setChoices((current) => ({ ...current, [item.id]: { product_id: event.target.value } }))}>
               <option value="">Selecciona una opción</option>
-              {allowed.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
+              {candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
             </select>}
         </div>;
       })}

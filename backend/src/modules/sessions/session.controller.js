@@ -15,6 +15,9 @@ const startSchema = z.object({
       path: ['duracion_minutos'],
       message: 'La duración es obligatoria para una renta FIJO.'
     });
+    const extensionSchema = z.object({
+      minutos: z.number().int().positive().max(720)
+    });
   }
   if (data.tipo_renta === 'LIBRE' && data.duracion_minutos !== undefined) {
     context.addIssue({
@@ -53,6 +56,13 @@ export const pause = asyncHandler(async (request, response) => {
 
 export const resume = asyncHandler(async (request, response) => {
   const session = await service.resumeSession(getId(request));
+  emitUpdate(request, session);
+  response.json({ data: session });
+});
+
+export const extend = asyncHandler(async (request, response) => {
+  const { minutos: minutes } = extensionSchema.parse(request.body);
+  const session = await service.extendSession(getId(request), minutes);
   emitUpdate(request, session);
   response.json({ data: session });
 });

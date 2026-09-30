@@ -17,7 +17,16 @@ export async function validateProductModifiers(productId, selectedModifiersArray
 
   for (const group of groups.filter((item) => item.is_active)) {
     const selection = selected.find((item) => item.modifier_id === group.id);
-    const optionIds = selection?.option_ids || [];
+    const metadata = group.metadata || {};
+    let optionIds = selection?.option_ids || [];
+    if (!optionIds.length) {
+      const defaultNames = metadata.default_options || (
+        metadata.default_option ? [metadata.default_option] : []
+      );
+      const defaults = (group.options || []).filter((option) => defaultNames.includes(option.name));
+      const fallback = group.required && !defaults.length ? (group.options || []).filter((option) => option.is_active).slice(0, 1) : defaults;
+      optionIds = fallback.map((option) => option.id);
+    }
     const min = Math.max(Number(group.min_selections), group.required ? 1 : 0);
     if (optionIds.length < min || optionIds.length > Number(group.max_selections)) {
       throw new AppError(
@@ -33,6 +42,18 @@ export async function validateProductModifiers(productId, selectedModifiersArray
       throw new AppError(`Una opción seleccionada no pertenece al modificador ${group.name}.`, 400);
     }
     additionalTotal += groupOptions.reduce((sum, option) => sum + Number(option.price_delta), 0);
+    const includedSelections = Number(metadata.included_selections);
+    const extraPrice = Number(metadata.extra_price);
+    if (Number.isFinite(includedSelections) && Number.isFinite(extraPrice) &&
+        groupOptions.length > includedSelections) {
+      additionalTotal += (groupOptions.length - includedSelections) * extraPrice;
+    }
+    if (metadata.medium_non_default_surcharge && groupOptions.some((option) => option.option_name !== 'Mantequilla')) {
+      const product = await repository.findProduct(productId, client);
+      if (product?.name?.toLowerCase().includes('mediana')) {
+        additionalTotal += Number(metadata.medium_non_default_surcharge);
+      }
+    }
     validated.push({
       modifier_id: group.id,
       name: group.name,
@@ -85,11 +106,15 @@ export async function processComboSelection(comboId, selectedComponentsArray = [
     const allowedProductIds = Array.isArray(component.metadata?.allowed_product_ids)
       ? component.metadata.allowed_product_ids
       : [component.component_product_id];
-    if (!productId || !allowedProductIds.includes(productId)) {
+    const allowedSubcategory = component.metadata?.allowed_subcategory;
+    if (!productId || (!allowedProductIds.includes(productId) && !allowedSubcategory)) {
       throw new AppError('El producto seleccionado no está permitido en este componente del combo.', 400);
     }
     const product = await repository.findProductForOrder(productId, client);
     if (!product) throw new AppError('Un componente del combo no existe o está inactivo.', 400);
+    if (allowedSubcategory && product.subcategory_name !== allowedSubcategory) {
+      throw new AppError('El producto seleccionado no pertenece a la categoría permitida del combo.', 400);
+    }
     const modifierResult = await validateProductModifiers(
       product.id, selected?.modifiers || [], client
     );

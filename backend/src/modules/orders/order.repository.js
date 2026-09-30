@@ -76,8 +76,12 @@ export async function createOrder({ items, createdBy }) {
         line.quantity,
         line.unitPrice ?? line.unit_price,
         line.lineTotal,
-        line.kds_status,
-        line.is_kds_visible,
+        line.rental_session_id || ['RENTAL', 'RENTAL_EXTENSION'].includes(line.item_type)
+          ? 'NOT_REQUIRED'
+          : line.kds_status,
+        line.rental_session_id || ['RENTAL', 'RENTAL_EXTENSION'].includes(line.item_type)
+          ? false
+          : line.is_kds_visible,
         JSON.stringify(line.modifiers || [])
       ]);
     }
@@ -145,6 +149,7 @@ export async function listKdsOrders() {
       o.id, o.order_number, o.status, o.created_at,
       COALESCE(json_agg(json_build_object(
         'id', oi.id, 'name', oi.name_snapshot, 'quantity', oi.quantity,
+        'item_type', oi.item_type, 'category_name', c.name,
         'modifiers', oi.modifiers, 'kds_status', oi.kds_status,
         'is_kds_visible', oi.is_kds_visible
       ) ORDER BY oi.created_at) FILTER (
@@ -153,6 +158,8 @@ export async function listKdsOrders() {
       ), '[]') AS items
     FROM orders o
     INNER JOIN order_items oi ON oi.order_id = o.id
+    LEFT JOIN products p ON p.id = oi.product_id
+    LEFT JOIN categories c ON c.id = p.category_id
     WHERE o.status IN ('IN_PREPARATION', 'READY')
       AND oi.is_kds_visible = TRUE
       AND oi.kds_status IN ('PENDING', 'PREPARING')
@@ -193,8 +200,9 @@ export async function updateKdsItem(itemId, status) {
   if (item?.order_ready) {
     await pool.query(`
       UPDATE orders
-      SET status = 'READY'
-      WHERE id = $1 AND status = 'IN_PREPARATION'
+      SET status = 'DELIVERED',
+          delivered_at = CURRENT_TIMESTAMP
+      WHERE id = $1 AND status IN ('IN_PREPARATION', 'READY')
     `, [item.order_id]);
   }
   return item;

@@ -1,20 +1,15 @@
 import { useState } from 'react';
 import { LoginForm } from './components/LoginForm.jsx';
 import { Sidebar } from './components/Sidebar.jsx';
-import { CatalogAdminPage } from './modules/catalog/CatalogAdminPage.jsx';
+import { ComandasPage } from './modules/kds/ComandasPage.jsx';
 import { ConsolesPage } from './modules/consoles/ConsolesPage.jsx';
-import { DashboardPage } from './modules/dashboard/DashboardPage.jsx';
-import { InventoryPage } from './modules/inventory/InventoryPage.jsx';
-import { KDSPage } from './modules/kds/KDSPage.jsx';
-import { OrdersHistoryPage } from './modules/orders/OrdersHistoryPage.jsx';
-import { POSPage } from './modules/pos/POSPage.jsx';
-import { MonitorPage } from './modules/reports/MonitorPage.jsx';
-import { ExpensesPage } from './modules/expenses/ExpensesPage.jsx';
 import { AdminPage } from './modules/admin/AdminPage.jsx';
+import { ExpensesPage } from './modules/expenses/ExpensesPage.jsx';
+import { POSPage } from './modules/pos/POSPage.jsx';
 import { clearAccessToken, getAccessToken } from './services/api.js';
 
 export default function App() {
-  const [activeView, setActiveView] = useState('dashboard');
+  const [activeView, setActiveView] = useState('nuevo-pedido');
   const [authenticated, setAuthenticated] = useState(Boolean(getAccessToken()));
 
   function logout() {
@@ -25,16 +20,11 @@ export default function App() {
   if (!authenticated) return <LoginForm onAuthenticated={() => setAuthenticated(true)} />;
 
   const views = {
-    dashboard: <DashboardPage />,
+    'nuevo-pedido': <POSPage />,
+    comandas: <ComandasPage />,
     rentas: <ConsolesPage onLogout={logout} />,
-    monitor: <MonitorPage />,
-    cafeteria: <POSPage />,
-    kds: <KDSPage />,
-    inventario: <InventoryPage />,
-    catalogo: <CatalogAdminPage />,
-    ordenes: <OrdersHistoryPage />,
     gastos: <ExpensesPage />,
-    admin: <AdminPage onNavigate={setActiveView} />
+    admin: <AdminPage onLogout={logout} />
   };
 
   return <div className="min-h-screen bg-brand-light text-brand-dark md:flex">

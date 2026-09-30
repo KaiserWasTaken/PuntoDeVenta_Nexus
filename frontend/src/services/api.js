@@ -57,6 +57,11 @@ export async function resumeSession(id) {
   return data.data;
 }
 
+export async function extendSession(id, minutes) {
+  const { data } = await api.post(`/sesiones/${id}/extender`, { minutos: minutes });
+  return data.data;
+}
+
 export async function finishSession(id) {
   const { data } = await api.post(`/sesiones/${id}/finalizar`);
   return data.data;
@@ -106,6 +111,16 @@ export async function updateKdsItem(id, status) {
 
 export async function getActiveMetrics() {
   const { data } = await api.get('/reportes/metricas-activas');
+  return data.data;
+}
+
+export async function closeDay(reportDate) {
+  const { data } = await api.post('/reportes/cerrar', { report_date: reportDate });
+  return data.data;
+}
+
+export async function getDailyReports() {
+  const { data } = await api.get('/reportes/historial');
   return data.data;
 }
 

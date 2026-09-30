@@ -72,7 +72,11 @@ export function pauseSession(id) {
     if (session.estado !== 'ACTIVA') {
       throw new AppError('Solo se puede pausar una sesión activa.', 409);
     }
-    await repository.pause(client, id, secondsSince(session.timestamp_inicio));
+    const elapsed = secondsSince(session.timestamp_inicio);
+    const seconds = session.tipo_renta === 'FIJO'
+      ? Math.min(elapsed, session.duracion_segundos - session.segundos_acumulados)
+      : elapsed;
+    await repository.pause(client, id, Math.max(seconds, 0));
     return repository.findById(client, id);
   });
 }
@@ -90,18 +94,44 @@ export function resumeSession(id) {
   });
 }
 
+export function extendSession(id, minutes) {
+  return withLockedSession(id, async (client, session) => {
+    if (session.tipo_renta !== 'FIJO' || !['ACTIVA', 'PAUSADA'].includes(session.estado)) {
+      throw new AppError('Solo se puede extender una renta fija activa o pausada.', 409);
+    }
+    const extended = await repository.extend(client, id, minutes);
+    if (!extended) throw new AppError('No se pudo extender la sesión.', 409);
+    return repository.findById(client, id);
+  });
+}
+
 export function finishSession(id) {
   return withLockedSession(id, async (client, session) => {
+    const existingOrder = await repository.findRentalOrderForUpdate(client, id);
+    if (session.estado === 'FINALIZADA') {
+      if (!existingOrder) {
+        throw new AppError('La sesión ya fue finalizada.', 409);
+      }
+      return {
+        ...(await repository.findById(client, id)),
+        order_id: existingOrder.id,
+        order_number: existingOrder.order_number,
+        order_status: existingOrder.status
+      };
+    }
     if (!['ACTIVA', 'PAUSADA'].includes(session.estado)) {
-      throw new AppError('La sesión ya fue finalizada.', 409);
+      throw new AppError('La sesión no se puede finalizar en su estado actual.', 409);
     }
     const extraSeconds = session.estado === 'ACTIVA'
       ? secondsSince(session.timestamp_inicio)
       : 0;
-    const totalSeconds = session.segundos_acumulados + extraSeconds;
+    const elapsedSeconds = session.tipo_renta === 'FIJO'
+      ? Math.min(extraSeconds, session.duracion_segundos - session.segundos_acumulados)
+      : extraSeconds;
+    const totalSeconds = session.segundos_acumulados + Math.max(elapsedSeconds, 0);
     const amount = amountFor(totalSeconds);
-    const order = await repository.createRentalOrder(client, session, amount);
-    await repository.finish(client, id, extraSeconds, amount);
+    const order = existingOrder || await repository.createRentalOrder(client, session, amount);
+    await repository.finish(client, id, Math.max(elapsedSeconds, 0), amount);
     await repository.setConsoleStatus(client, session.consola_id, 'available');
     return {
       ...(await repository.findById(client, id)),

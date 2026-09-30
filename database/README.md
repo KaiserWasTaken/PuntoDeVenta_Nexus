@@ -51,4 +51,7 @@ La primera migración contiene las entidades necesarias para comenzar:
 
 Las migraciones 005, 006 y 007 son necesarias antes de usar el endpoint de
 pago diferido, porque el backend escribe `paid_at`, usa `is_kds_visible` y
-registra movimientos asociados a `insumos`.
+registra movimientos asociados a `insumos`. La migración
+`008_seed_catalog_and_modifiers.sql` carga el catálogo inicial, modificadores
+parametrizados y los nueve combos; `009_rental_kds_and_close_details.sql`
+refuerza que las rentas nunca aparezcan en el KDS y amplía los cierres diarios.

@@ -19,8 +19,15 @@ const sessionSelect = `
     s.monto_total,
     CASE
       WHEN s.estado = 'ACTIVA'
-        THEN s.segundos_acumulados
-          + EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - s.timestamp_inicio))::INTEGER
+        THEN CASE
+          WHEN s.tipo_renta = 'FIJO' THEN LEAST(
+            s.duracion_segundos,
+            s.segundos_acumulados
+              + EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - s.timestamp_inicio))::INTEGER
+          )
+          ELSE s.segundos_acumulados
+            + EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - s.timestamp_inicio))::INTEGER
+        END
       ELSE s.segundos_acumulados
     END AS tiempo_transcurrido_segundos,
     CASE
@@ -28,8 +35,15 @@ const sessionSelect = `
         s.duracion_segundos - (
           CASE
             WHEN s.estado = 'ACTIVA'
-              THEN s.segundos_acumulados
-                + EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - s.timestamp_inicio))::INTEGER
+              THEN CASE
+                WHEN s.tipo_renta = 'FIJO' THEN LEAST(
+                  s.duracion_segundos,
+                  s.segundos_acumulados
+                    + EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - s.timestamp_inicio))::INTEGER
+                )
+                ELSE s.segundos_acumulados
+                  + EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - s.timestamp_inicio))::INTEGER
+              END
             ELSE s.segundos_acumulados
           END
         ), 0
@@ -40,8 +54,15 @@ const sessionSelect = `
       (
         CASE
           WHEN s.estado = 'ACTIVA'
-            THEN s.segundos_acumulados
-              + EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - s.timestamp_inicio))::INTEGER
+            THEN CASE
+              WHEN s.tipo_renta = 'FIJO' THEN LEAST(
+                s.duracion_segundos,
+                s.segundos_acumulados
+                  + EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - s.timestamp_inicio))::INTEGER
+              )
+              ELSE s.segundos_acumulados
+                + EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - s.timestamp_inicio))::INTEGER
+            END
           ELSE s.segundos_acumulados
         END
       ) * s.precio_por_hora / 3600
@@ -86,6 +107,20 @@ export async function findSessionForUpdate(client, id) {
     WHERE s.id = $1
     FOR UPDATE OF s, c
   `, [id]);
+  return result.rows[0] ?? null;
+}
+
+export async function findRentalOrderForUpdate(client, sessionId) {
+  const result = await client.query(`
+    SELECT o.*
+    FROM orders o
+    INNER JOIN order_items oi ON oi.order_id = o.id
+    WHERE oi.rental_session_id = $1
+      AND oi.item_type IN ('RENTAL', 'RENTAL_EXTENSION')
+    ORDER BY o.created_at DESC
+    LIMIT 1
+    FOR UPDATE OF o
+  `, [sessionId]);
   return result.rows[0] ?? null;
 }
 
@@ -162,6 +197,22 @@ export async function resume(client, id, remainingSeconds) {
   `, [id, remainingSeconds]);
 }
 
+export async function extend(client, id, minutes) {
+  const result = await client.query(`
+    UPDATE sesiones_tiempo
+    SET timestamp_fin = CASE
+          WHEN timestamp_fin IS NOT NULL AND timestamp_fin > CURRENT_TIMESTAMP
+            THEN timestamp_fin + ($2 * INTERVAL '1 minute')
+          ELSE CURRENT_TIMESTAMP + ($2 * INTERVAL '1 minute')
+        END,
+        duracion_segundos = COALESCE(duracion_segundos, 0) + ($2 * 60),
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = $1 AND estado IN ('ACTIVA', 'PAUSADA') AND tipo_renta = 'FIJO'
+    RETURNING id
+  `, [id, minutes]);
+  return result.rowCount > 0;
+}
+
 export async function finish(client, id, seconds, amount) {
   await client.query(`
     UPDATE sesiones_tiempo
@@ -188,9 +239,9 @@ export async function createRentalOrder(client, session, amount) {
   await client.query(`
     INSERT INTO order_items (
       order_id, rental_session_id, item_type, name_snapshot,
-      quantity, unit_price, line_total, kds_status
+      quantity, unit_price, line_total, kds_status, is_kds_visible
     )
-    VALUES ($1, $2, 'RENTAL', $3, 1, $4, $4, 'NOT_REQUIRED')
+    VALUES ($1, $2, 'RENTAL', $3, 1, $4, $4, 'NOT_REQUIRED', FALSE)
   `, [
     orderResult.rows[0].id,
     session.id,

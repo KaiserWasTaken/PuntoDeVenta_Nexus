@@ -6,6 +6,10 @@ export const activeMetrics = asyncHandler(async (_request, response) => {
   response.json({ data: await repository.getActiveMetrics() });
 });
 
+export const history = asyncHandler(async (_request, response) => {
+  response.json({ data: await repository.listDailyReports() });
+});
+
 export const close = asyncHandler(async (request, response) => {
   const { report_date, closed_by } = z.object({
     report_date: z.string().date(),
